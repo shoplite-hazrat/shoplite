@@ -241,6 +241,65 @@ jobs:
         if: always()
         run: docker compose down --volumes
 
+  deploy-dev:
+    name: Deploy to dev (gitops PR)
+    # Continuous delivery to dev: point envs/dev at the images this run just
+    # published. Argo CD deploys once the gitops PR merges (auto-merge on green).
+    needs: [changes, build, integration]
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
+      && needs.changes.outputs.services != '[]'
+      && needs.build.result == 'success'
+      && (needs.integration.result == 'success' || needs.integration.result == 'skipped')
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: deploy-dev
+      cancel-in-progress: false
+    env:
+      # PRs opened with GITHUB_TOKEN don't trigger workflows (so gitops CI and
+      # its required check would never run). This token is scoped to the
+      # gitops repo only: contents + pull requests.
+      GH_TOKEN: ${{ secrets.GITOPS_TOKEN }}
+      SERVICES: ${{ needs.changes.outputs.services }}
+    steps:
+      - name: Check token
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::Secret GITOPS_TOKEN is not set; cannot open the gitops PR."
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository_owner }}/shoplite-gitops
+          token: ${{ secrets.GITOPS_TOKEN }}
+          path: gitops
+      - name: Bump image tags in envs/dev
+        working-directory: gitops
+        run: |
+          TAG="sha-${GITHUB_SHA::7}"
+          BRANCH="deploy/dev-${TAG}"
+          git config user.name "shoplite-ci"
+          git config user.email "ci@shoplite.local"
+          git switch -c "$BRANCH"
+          for svc in $(echo "$SERVICES" | jq -r '.[]'); do
+            file="envs/dev/services/${svc}.yaml"
+            [ -f "$file" ] || { echo "skip $svc (not deployed to dev)"; continue; }
+            TAG="$TAG" yq -i '.image.tag = strenv(TAG)' "$file"
+          done
+          if git diff --quiet; then echo "Nothing to change"; exit 0; fi
+          git commit -am "deploy(dev): ${TAG} ($(echo "$SERVICES" | jq -r 'join(", ")'))"
+          git push -u origin "$BRANCH"
+          gh pr create --base main --head "$BRANCH" \
+            --title "deploy(dev): $(echo "$SERVICES" | jq -r 'join(", ")') -> ${TAG}" \
+            --body "Automated deploy of ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }} to **dev**.
+
+          Services: \`$(echo "$SERVICES" | jq -r 'join("`, `")')\`
+          Images: \`ghcr.io/${{ github.repository_owner }}/<service>:${TAG}\` (signed, SBOM + provenance attached)
+          Source run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Auto-merges when gitops CI passes; Argo CD then syncs dev."
+          gh pr merge --auto --squash "$BRANCH"
+
   ci-ok:
     name: ci-ok
     # The one check required by branch protection. It summarises the jobs above,
