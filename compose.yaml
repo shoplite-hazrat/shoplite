@@ -1,0 +1,175 @@
+# ShopLite local environment: the whole system with one command.
+#
+#   docker compose up -d --build     then open http://localhost:8080
+#   Mailpit (emails):                http://localhost:8025
+#
+# Startup order is driven by health checks, the same way Kubernetes uses
+# readiness: infra healthy -> migrations complete -> services healthy -> gateway.
+# Credentials here are for local development only.
+
+name: shoplite
+
+x-service: &service
+  restart: unless-stopped
+  init: true # forward SIGTERM properly and reap zombies
+  environment: &common-env
+    LOG_LEVEL: ${LOG_LEVEL:-info}
+
+x-healthcheck: &healthcheck
+  interval: 5s
+  timeout: 3s
+  retries: 12
+  start_period: 10s
+
+services:
+  # ---------------------------------------------------------------- infra
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./deploy/compose/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD-SHELL", "pg_isready -U postgres && psql -U postgres -lqt | grep -q notifications"]
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "redis-cli", "ping"]
+
+  nats:
+    image: nats:2-alpine
+    restart: unless-stopped
+    command: ["--jetstream", "--store_dir", "/data", "--http_port", "8222"]
+    volumes:
+      - natsdata:/data
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8222/healthz?js-enabled-only=true"]
+
+  mailpit:
+    image: axllent/mailpit:v1.31.4
+    restart: unless-stopped
+    ports:
+      - "8025:8025" # web UI
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "/mailpit", "readyz"]
+
+  # ----------------------------------------------------------- migrations
+  # One-shot jobs; services wait for them to exit 0 (in k8s: a Job / Helm hook).
+  catalog-migrate:
+    image: shoplite/catalog:dev
+    build: ./services/catalog
+    command: ["src/migrate.js"]
+    environment:
+      DATABASE_URL: postgres://catalog:catalog@postgres:5432/catalog
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  order-migrate:
+    image: shoplite/order:dev
+    build: ./services/order
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgres://orders:orders@postgres:5432/orders
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  notification-migrate:
+    image: shoplite/notification:dev
+    build: ./services/notification
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgres://notifications:notifications@postgres:5432/notifications
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  # ------------------------------------------------------------- services
+  catalog:
+    <<: *service
+    image: shoplite/catalog:dev
+    build: ./services/catalog
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgres://catalog:catalog@postgres:5432/catalog
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      catalog-migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    healthcheck:
+      <<: *healthcheck
+      # Distroless: no shell or curl, so probe with node itself.
+      test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://localhost:3000/readyz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+
+  order:
+    <<: *service
+    image: shoplite/order:dev
+    build: ./services/order
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgres://orders:orders@postgres:5432/orders
+      CATALOG_URL: http://catalog:3000
+      NATS_URL: nats://nats:4222
+    depends_on:
+      order-migrate: { condition: service_completed_successfully }
+      catalog: { condition: service_healthy }
+      nats: { condition: service_healthy }
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/readyz', timeout=2)"]
+
+  notification:
+    <<: *service
+    image: shoplite/notification:dev
+    build: ./services/notification
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgres://notifications:notifications@postgres:5432/notifications
+      NATS_URL: nats://nats:4222
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+    depends_on:
+      notification-migrate: { condition: service_completed_successfully }
+      nats: { condition: service_healthy }
+      mailpit: { condition: service_healthy }
+    healthcheck:
+      <<: *healthcheck
+      # Readiness needs the ORDERS stream, which order-service creates; until
+      # then the worker reports unhealthy here and keeps retrying.
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8001/readyz', timeout=2)"]
+
+  frontend:
+    <<: *service
+    image: shoplite/frontend:dev
+    build: ./services/frontend
+    healthcheck:
+      <<: *healthcheck
+      # 127.0.0.1, not localhost: on Alpine localhost resolves to ::1 first and
+      # busybox wget does not fall back to IPv4, where nginx listens.
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+
+  gateway:
+    <<: *service
+    image: nginxinc/nginx-unprivileged:1.30-alpine
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./deploy/compose/gateway/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      frontend: { condition: service_healthy }
+      catalog: { condition: service_healthy }
+      order: { condition: service_healthy }
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+
+volumes:
+  pgdata:
+  natsdata:
