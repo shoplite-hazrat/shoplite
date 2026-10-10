@@ -17,7 +17,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # ---- runtime: no uv, no build tools, non-root ----
 FROM python:3.14-slim-bookworm
-RUN groupadd --gid 10001 app && useradd --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app
+# Remove pip/setuptools: nothing installs packages at runtime, and their
+# vendored libraries are the main source of CVEs in this base image.
+RUN rm -rf /usr/local/lib/python3.*/site-packages/pip* /usr/local/lib/python3.*/site-packages/setuptools* /usr/local/bin/pip* \
+ && groupadd --gid 10001 app && useradd --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app
 WORKDIR /app
 COPY --from=build /app/.venv /app/.venv
 COPY alembic.ini ./
