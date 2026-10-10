@@ -94,5 +94,33 @@ export function createPgRepository(pool) {
         client.release();
       }
     },
+
+    // Undo a reservation (compensating action when an order fails part-way).
+    // Idempotent: releasing something that is not reserved is a no-op.
+    async release({ productId, orderId }) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const deleted = await client.query(
+          'DELETE FROM reservations WHERE order_id = $1 AND product_id = $2 RETURNING quantity',
+          [orderId, productId],
+        );
+        const { rows } = deleted.rowCount === 0
+          ? await client.query(`SELECT ${COLUMNS} FROM products WHERE id = $1`, [productId])
+          : await client.query(
+            `UPDATE products SET stock = stock + $2, updated_at = now()
+             WHERE id = $1 RETURNING ${COLUMNS}`,
+            [productId, deleted.rows[0].quantity],
+          );
+        await client.query('COMMIT');
+        if (!rows[0]) return { status: 'not_found' };
+        return { status: deleted.rowCount === 0 ? 'not_reserved' : 'released', product: toProduct(rows[0]) };
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw err;
+      } finally {
+        client.release();
+      }
+    },
   };
 }

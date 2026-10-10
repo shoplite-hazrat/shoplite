@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 // In-memory stand-in for the Postgres repository, with the same behaviour.
 export function createMemoryRepository(seed = []) {
   const products = new Map();
-  const reservations = new Set();
+  const reservations = new Map();
   let healthy = true;
 
   for (const p of seed) {
@@ -40,9 +40,18 @@ export function createMemoryRepository(seed = []) {
       const key = `${orderId}:${productId}`;
       if (reservations.has(key)) return { status: 'already_reserved', product };
       if (product.stock < quantity) return { status: 'insufficient_stock' };
-      reservations.add(key);
+      reservations.set(key, quantity);
       product.stock -= quantity;
       return { status: 'reserved', product };
+    },
+    async release({ productId, orderId }) {
+      const product = products.get(productId);
+      if (!product) return { status: 'not_found' };
+      const key = `${orderId}:${productId}`;
+      if (!reservations.has(key)) return { status: 'not_reserved', product };
+      product.stock += reservations.get(key);
+      reservations.delete(key);
+      return { status: 'released', product };
     },
   };
 }

@@ -108,4 +108,24 @@ export default async function productRoutes(app, { repo, cache }) {
         throw new Error(`unexpected reserve status ${result.status}`);
     }
   });
+
+  // Compensating action for reserve. Idempotent, so it is also safe to retry.
+  app.post('/products/:id/release', {
+    schema: {
+      params: idParams,
+      body: {
+        type: 'object',
+        required: ['orderId'],
+        additionalProperties: false,
+        properties: { orderId: { type: 'string', format: 'uuid' } },
+      },
+      response: { 200: product },
+    },
+  }, async (request, reply) => {
+    const { id } = request.params;
+    const result = await repo.release({ productId: id, orderId: request.body.orderId });
+    if (result.status === 'not_found') return reply.notFound(`product ${id} not found`);
+    if (result.status === 'released') await cache.invalidate(id);
+    return result.product;
+  });
 }
