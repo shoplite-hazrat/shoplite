@@ -1,0 +1,160 @@
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --text: #1c2230;
+  --muted: #5d6677;
+  --border: #e2e5eb;
+  --accent: #2f5bd3;
+  --accent-text: #ffffff;
+  --danger: #b42318;
+  --danger-bg: #fef3f2;
+  --ok: #067647;
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11141a;
+    --surface: #1a1f28;
+    --text: #e6e9ef;
+    --muted: #9aa3b2;
+    --border: #2b3240;
+    --accent: #6e8ff0;
+    --accent-text: #0d1117;
+    --danger: #f97066;
+    --danger-bg: #2a1614;
+    --ok: #47cd89;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+h1, h2 { margin: 0; line-height: 1.25; }
+h1 { font-size: 1.25rem; }
+h2 { font-size: 1.05rem; }
+
+button {
+  font: inherit;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.45rem 0.8rem;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+  width: 100%;
+  padding: 0.65rem;
+  font-weight: 600;
+}
+button.icon { width: 2rem; padding: 0.2rem 0; }
+
+input {
+  font: inherit;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.badge {
+  font-size: 0.85rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.15rem 0.7rem;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+@media (min-width: 860px) {
+  .layout { grid-template-columns: 1fr 340px; align-items: start; }
+  .cart { position: sticky; top: 1rem; }
+}
+
+.products {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+.product, .cart, .confirmation {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+}
+.product { display: flex; flex-direction: column; justify-content: space-between; gap: 1rem; }
+.product-body p { margin: 0.35rem 0 0; }
+.product-foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.5rem; }
+.price { font-weight: 700; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.stock { font-size: 0.8rem; color: var(--ok); }
+.stock-out { color: var(--danger); }
+
+.muted { color: var(--muted); }
+.small { font-size: 0.8rem; word-break: break-all; }
+
+.cart h2, .confirmation h2 { margin-bottom: 0.75rem; }
+.cart-lines { list-style: none; margin: 0; padding: 0; }
+.cart-lines li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.qty { display: inline-flex; align-items: center; gap: 0.4rem; font-variant-numeric: tabular-nums; }
+.line-total { min-width: 4.5rem; text-align: right; font-variant-numeric: tabular-nums; }
+.cart-total {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+.checkout { display: grid; gap: 0.5rem; }
+.checkout label { font-size: 0.9rem; color: var(--muted); }
+
+.error {
+  margin: 0.75rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.confirmation { max-width: 560px; margin: 0 auto; width: 100%; grid-column: 1 / -1; }
+.confirmation .primary { margin-top: 0.5rem; }
