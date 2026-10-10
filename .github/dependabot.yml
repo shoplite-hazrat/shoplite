@@ -36,6 +36,11 @@ updates:
     directories: ["/services/*"]
     schedule: { interval: weekly, day: monday }
     commit-message: { prefix: "chore(docker)" }
+    ignore:
+      # Stay on Node LTS (even majors). Odd majors like 25 are short-lived
+      # "current" releases; moving to the next LTS is a deliberate upgrade.
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker-compose
     directory: /
