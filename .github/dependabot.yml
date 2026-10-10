@@ -1,0 +1,43 @@
+# Automated dependency updates. Each update arrives as a PR and must pass CI
+# like any other change; grouping keeps the PR count manageable.
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    commit-message: { prefix: "chore(ci)" }
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directories: [/services/catalog, /services/frontend]
+    schedule: { interval: weekly, day: monday }
+    commit-message: { prefix: "chore(deps)" }
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # typescript-eslint does not support TypeScript 7 yet (peer range <6.1).
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: uv
+    directories: [/services/order, /services/notification]
+    schedule: { interval: weekly, day: monday }
+    commit-message: { prefix: "chore(deps)" }
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # Base images in Dockerfiles (security patches land here first).
+  - package-ecosystem: docker
+    directories: ["/services/*"]
+    schedule: { interval: weekly, day: monday }
+    commit-message: { prefix: "chore(docker)" }
+
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    commit-message: { prefix: "chore(compose)" }
