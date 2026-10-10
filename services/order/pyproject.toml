@@ -1,0 +1,37 @@
+[project]
+name = "order-service"
+version = "0.1.0"
+description = "ShopLite order API: places orders, reserves stock, emits order events"
+requires-python = ">=3.14"
+dependencies = [
+    "alembic>=1.20",
+    "asyncpg>=0.32",
+    "fastapi>=0.143",
+    "httpx>=0.28",
+    "nats-py>=2.16",
+    "prometheus-client>=0.26",
+    "pydantic-settings>=2.15",
+    "python-json-logger>=4.2",
+    "sqlalchemy[asyncio]>=2.1",
+    "uvicorn[standard]>=0.54",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1",
+    "ruff>=0.17",
+]
+
+[build-system]
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "ASYNC", "SIM", "RUF"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

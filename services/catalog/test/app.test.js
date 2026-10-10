@@ -156,6 +156,34 @@ describe('catalog-service', () => {
     });
   });
 
+  describe('POST /v1/products/:id/release', () => {
+    const post = (action, id, body) => app.inject({ method: 'POST', url: `/v1/products/${id}/${action}`, payload: body });
+
+    it('returns reserved stock and is idempotent', async () => {
+      const orderId = randomUUID();
+      await post('reserve', mug.id, { orderId, quantity: 2 });
+      const first = await post('release', mug.id, { orderId });
+      expect(first.statusCode).toBe(200);
+      expect(first.json().stock).toBe(5);
+      const retry = await post('release', mug.id, { orderId });
+      expect(retry.statusCode).toBe(200);
+      expect(retry.json().stock).toBe(5);
+    });
+
+    it('allows the same order to reserve again after release', async () => {
+      const orderId = randomUUID();
+      await post('reserve', mug.id, { orderId, quantity: 2 });
+      await post('release', mug.id, { orderId });
+      const again = await post('reserve', mug.id, { orderId, quantity: 1 });
+      expect(again.json().stock).toBe(4);
+    });
+
+    it('returns 404 for an unknown product', async () => {
+      const res = await post('release', randomUUID(), { orderId: randomUUID() });
+      expect(res.statusCode).toBe(404);
+    });
+  });
+
   describe('observability', () => {
     it('echoes the incoming request id', async () => {
       const res = await app.inject({ url: '/healthz', headers: { 'x-request-id': 'abc-123' } });

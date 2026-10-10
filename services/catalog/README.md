@@ -10,6 +10,7 @@ Product catalog API for ShopLite. Node.js 24, Fastify 5, PostgreSQL, optional Re
 | GET | `/v1/products/:id` | Get one product (Redis-cached, `x-cache: hit\|miss`) |
 | POST | `/v1/products` | Create `{sku, name, description?, priceCents, stock}` |
 | POST | `/v1/products/:id/reserve` | Reserve stock `{orderId, quantity}`. Idempotent per `orderId`; `409` if stock is insufficient |
+| POST | `/v1/products/:id/release` | Undo a reservation `{orderId}` (saga compensation). Idempotent |
 | GET | `/healthz` | Liveness. Never checks dependencies |
 | GET | `/readyz` | Readiness. Checks Postgres; `503` while shutting down |
 | GET | `/metrics` | Prometheus metrics |
