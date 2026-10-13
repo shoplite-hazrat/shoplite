@@ -441,7 +441,7 @@ requires-dist = [
     { name = "prometheus-client", specifier = ">=0.26" },
     { name = "pydantic-settings", specifier = ">=2.15" },
     { name = "python-json-logger", specifier = ">=4.2" },
-    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.1" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.1.4" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54" },
 ]
 
