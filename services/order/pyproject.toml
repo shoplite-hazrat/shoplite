@@ -6,11 +6,11 @@ requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.20",
     "asyncpg>=0.32",
-    "fastapi>=0.143",
+    "fastapi>=0.143.2",
     "httpx>=0.28",
     "nats-py>=2.16",
     "prometheus-client>=0.26",
-    "pydantic-settings>=2.15",
+    "pydantic-settings>=2.16.0",
     "python-json-logger>=4.2",
     "sqlalchemy[asyncio]>=2.1",
     "uvicorn[standard]>=0.54",
@@ -19,7 +19,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=9.1",
-    "ruff>=0.17",
+    "ruff>=0.17.1",
 ]
 
 [build-system]
