@@ -4,13 +4,13 @@ version = "0.1.0"
 description = "ShopLite order API: places orders, reserves stock, emits order events"
 requires-python = ">=3.14"
 dependencies = [
-    "alembic>=1.20",
+    "alembic>=1.20.1",
     "asyncpg>=0.32",
-    "fastapi>=0.143",
+    "fastapi>=0.161.1",
     "httpx>=0.28",
     "nats-py>=2.16",
     "prometheus-client>=0.26",
-    "pydantic-settings>=2.15",
+    "pydantic-settings>=2.16.1",
     "python-json-logger>=4.2",
     "sqlalchemy[asyncio]>=2.1",
     "uvicorn[standard]>=0.54",
@@ -19,7 +19,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=9.1",
-    "ruff>=0.17",
+    "ruff>=0.17.2",
 ]
 
 [build-system]
