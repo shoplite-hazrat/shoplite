@@ -54,7 +54,7 @@ services:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8222/healthz?js-enabled-only=true"]
 
   mailpit:
-    image: axllent/mailpit:v1.31.4
+    image: axllent/mailpit:v1.32.0
     restart: unless-stopped
     ports:
       - "8025:8025" # web UI
